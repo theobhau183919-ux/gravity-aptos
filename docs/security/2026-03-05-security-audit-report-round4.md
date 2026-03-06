@@ -47,11 +47,12 @@ The `GTxnBytes` variant of `TransactionPayload` is matched with `todo!()` in at 
 
 ## HIGH (4)
 
-### GAPTOS-R4-003: VM Validation Completely Disabled in Mempool
+### GAPTOS-R4-003: VM Validation Completely Disabled in Mempool [BY DESIGN]
 
 Combined with GAPTOS-R4-001 — creates a direct attack path. Any data can enter the mempool without format/signature/gas validation.
 
-**Prior:** P0-E3-1 (Round 3), marked "符合预期."
+**Prior:** P0-E3-1 (Round 3), marked "符合预期." Gravity uses L1-side verification instead of VM-level mempool validation.
+**Status:** Accepted risk — by design.
 
 ### GAPTOS-R4-004: `from_str().unwrap()` in Config Provider
 
