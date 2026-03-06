@@ -2,35 +2,35 @@
 
 | **ID** | **优先级** | **作者** | **问题描述** | **位置** | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| P0-B4-1 | 🔴 P0 | alexyue | 核心配置路径连续 unwrap()，节点可 panic | event-notifications/src/[lib.rs](http://lib.rs) |  |
-| P0-C3-1 | 🔴 P0 | alexyue | 未知 JWK 类型直接 panic!() | contract_[event.rs](http://event.rs) |  |
+| P0-B4-1 | 🔴 P0 | alexyue | 核心配置路径连续 unwrap()，节点可 panic | event-notifications/src/[lib.rs](http://lib.rs) | Reviewer: alexyue, accept |
+| P0-C3-1 | 🔴 P0 | alexyue | 未知 JWK 类型直接 panic!() | contract_[event.rs](http://event.rs) | Reviewer: alexyue, reject（不应出现的路径，需要 panic） |
 | P0-D1-1 | 🔴 P0 | keanji-x | Cargo.lock 被加入 .gitignore | .gitignore | 符合预期 |
 | P0-E3-1 | 🔴 P0 | keanji-x | VM 验证被完全禁用，任意数据可入 mempool | shared_mempool/[tasks.rs](http://tasks.rs) | 符合预期 |
-| P1-B2-1 | 🟠 P1 | alexyue | consensus config 反序列化跳过内层 BCS | consensus_[config.rs](http://config.rs) |  |
-| P1-B3-1 | 🟠 P1 | alexyue | todo!() 在 DKG event 生产路径 | contract_[event.rs](http://event.rs) |  |
-| P1-B4-2 | 🟠 P1 | alexyue | OnChainConfigProvider from_str + unwrap | on_chain_config |  |
-| P1-C1-1 | 🟠 P1 | alexyue | JWK 事件序列化混用 serde_json 与 bcs | contract_[event.rs](http://event.rs) |  |
-| P1-A1-1 | 🟠 P1 | alexyue | MemProfiler 所有方法替换为 todo!() | memory_[profiler.rs](http://profiler.rs) |  |
+| P1-B2-1 | 🟠 P1 | alexyue | consensus config 反序列化跳过内层 BCS | consensus_[config.rs](http://config.rs) | Reviewer: alexyue, accept（添加注释说明） |
+| P1-B3-1 | 🟠 P1 | alexyue | todo!() 在 DKG event 生产路径 | contract_[event.rs](http://event.rs) | Reviewer: alexyue, accept（已在后续 commit 修复） |
+| P1-B4-2 | 🟠 P1 | alexyue | OnChainConfigProvider from_str + unwrap | on_chain_config | Reviewer: alexyue, accept |
+| P1-C1-1 | 🟠 P1 | alexyue | JWK 事件序列化混用 serde_json 与 bcs | contract_[event.rs](http://event.rs) | Reviewer: alexyue, accept（添加注释说明） |
+| P1-A1-1 | 🟠 P1 | alexyue | MemProfiler 所有方法替换为 todo!() | memory_[profiler.rs](http://profiler.rs) | Reviewer: alexyue, reject（Aptos memprofiler 不兼容 Gravity） |
 | P1-E3-2 | 🟠 P1 | keanji-x | async→sync 重大 API 变更未在 PR 标题反映 | CoreMempoolTrait | commit msg 问题，不需要修复 |
 | P1-E4-1 | 🟠 P1 | keanji-x | VM validator pool 初始化被注释，pool 始终为空 | vm_[validator.rs](http://validator.rs) | https://github.com/Galxe/gravity-aptos/pull/49/changes |
 | P1-F3-1 | 🟠 P1 | keanji-x | write_all 返回类型不匹配，日志轮转计算错误 | tracing_[writer.rs](http://writer.rs) | https://github.com/Galxe/gravity-aptos/pull/49/changes |
-| P2-B1-1 | 🟡 P2 | alexyue | 31 文件大量代码被注释而非删除 | 多文件 |  |
-| P2-B1-2 | 🟡 P2 | alexyue | proptest 中 todo!() 残留 | proptest_[types.rs](http://types.rs) |  |
-| P2-B2-2 | 🟡 P2 | alexyue | 大量 consensus 类型被注释保留 | consensus_[config.rs](http://config.rs) |  |
-| P2-B3-2 | 🟡 P2 | alexyue | Into trait 反向实现 + unwrap 无错误处理 | contract_[event.rs](http://event.rs) |  |
-| P2-B4-3 | 🟡 P2 | alexyue | 注释掉的 DB 读取代码未清理 | on_chain_config |  |
-| P2-B8-1 | 🟡 P2 | alexyue | unwrap 修复不完全，仍有遗留 | event-notifications |  |
-| P2-C1-2 | 🟡 P2 | alexyue | JWK 配置反序列化注释掉 MoveAny 解包 | jwk_consensus_[config.rs](http://config.rs) |  |
-| P2-C2-1 | 🟡 P2 | alexyue | GLOBAL_RELAYER.get().unwrap() 可能 panic | jwk_observer |  |
+| P2-B1-1 | 🟡 P2 | alexyue | 31 文件大量代码被注释而非删除 | 多文件 | Reviewer: alexyue, reject（保留注释供参考） |
+| P2-B1-2 | 🟡 P2 | alexyue | proptest 中 todo!() 残留 | proptest_[types.rs](http://types.rs) | Reviewer: alexyue, reject（当前必须保留） |
+| P2-B2-2 | 🟡 P2 | alexyue | 大量 consensus 类型被注释保留 | consensus_[config.rs](http://config.rs) | Reviewer: alexyue, reject（保留注释供参考） |
+| P2-B3-2 | 🟡 P2 | alexyue | Into trait 反向实现 + unwrap 无错误处理 | contract_[event.rs](http://event.rs) | Reviewer: alexyue, accept |
+| P2-B4-3 | 🟡 P2 | alexyue | 注释掉的 DB 读取代码未清理 | on_chain_config | Reviewer: alexyue, reject（保留注释供参考） |
+| P2-B8-1 | 🟡 P2 | alexyue | unwrap 修复不完全，仍有遗留 | event-notifications | Reviewer: alexyue, accept |
+| P2-C1-2 | 🟡 P2 | alexyue | JWK 配置反序列化注释掉 MoveAny 解包 | jwk_consensus_[config.rs](http://config.rs) | Reviewer: alexyue, accept（添加注释说明） |
+| P2-C2-1 | 🟡 P2 | alexyue | GLOBAL_RELAYER.get().unwrap() 可能 panic | jwk_observer | Reviewer: alexyue, accept |
 | P2-D3-1 | 🟡 P2 | lightman | 非活跃 DKG config 变体填充全零默认值 | dkg converter |  |
 | P2-E1-1 | 🟡 P2 | keanji-x | Trait 方法签名过长（7 参数） | CoreMempoolTrait | 无需修复 |
 | P2-E2-1 | 🟡 P2 | keanji-x | add_txn 标记 async 但实现同步，有死锁风险 | CoreMempoolTrait | https://github.com/Galxe/gravity-aptos/pull/49/changes |
 | P2-F2-1 | 🟡 P2 | keanji-x | 文件操作中使用 expect()，磁盘异常时 panic | SizeRollingFileAppender | https://github.com/Galxe/gravity-aptos/pull/49/changes |
-| P3-B3-3 | 🟢 P3 | alexyue | epoch 字段改为 pub 破坏封装性 | NewEpochEvent |  |
-| P3-B5-1 | 🟢 P3 | alexyue | 文件末尾缺少换行符 | idl 模块 |  |
-| P3-C1-3 | 🟢 P3 | alexyue | JwkIdlError 命名误导（JSON vs BCS） | jwk_converter |  |
+| P3-B3-3 | 🟢 P3 | alexyue | epoch 字段改为 pub 破坏封装性 | NewEpochEvent | Reviewer: alexyue, reject（必须 pub 供外部访问） |
+| P3-B5-1 | 🟢 P3 | alexyue | 文件末尾缺少换行符 | idl 模块 | Reviewer: alexyue, accept |
+| P3-C1-3 | 🟢 P3 | alexyue | JwkIdlError 命名误导（JSON vs BCS） | jwk_converter | Reviewer: alexyue, reject |
 | P3-D3-2 | 🟢 P3 | lightman | 驼峰命名违反 Rust 规范 | dkg types |  |
-| P3-A1-2 | 🟢 P3 | alexyue | Cargo.toml 依赖改为 Galxe fork，需确认维护状态 | Cargo.toml |  |
+| P3-A1-2 | 🟢 P3 | alexyue | Cargo.toml 依赖改为 Galxe fork，需确认维护状态 | Cargo.toml | Reviewer: alexyue, reject（fork 由 Galxe 维护，无问题） |
 | P3-A3-1 | �� P3 | keanji-x | x25519-dalek 版本变更需确认安全审计 | Cargo.toml | 无需修复 |
 | P3-F1-1 | 🟢 P3 | keanji-x | 直接使用版本号而非 workspace 引用 | Cargo.toml | 无需修复 |
 
