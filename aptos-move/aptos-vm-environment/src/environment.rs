@@ -232,7 +232,12 @@ impl Environment {
             gas_hook,
         );
         let natives = aptos_natives_with_builder(&mut builder, inject_create_signer_for_gov_sim);
-        let vm_config = aptos_prod_vm_config(&features, &timed_features, ty_builder);
+        let vm_config = aptos_prod_vm_config(
+            &features,
+            &timed_features,
+            ty_builder,
+            gas_feature_version,
+        );
         let runtime_environment = RuntimeEnvironment::new_with_config(natives, vm_config);
 
         let hash = sha3_256.finalize().into();

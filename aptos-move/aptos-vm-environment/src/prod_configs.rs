@@ -11,6 +11,7 @@ use aptos_types::{
     state_store::StateView,
 };
 use move_binary_format::deserializer::DeserializerConfig;
+use move_binary_format::file_format_common::VERSION_5;
 use move_bytecode_verifier::VerifierConfig;
 use move_vm_runtime::config::VMConfig;
 use move_vm_types::loaded_data::runtime_types::TypeBuilder;
@@ -18,6 +19,8 @@ use once_cell::sync::OnceCell;
 
 static PARANOID_TYPE_CHECKS: OnceCell<bool> = OnceCell::new();
 static TIMED_FEATURE_OVERRIDE: OnceCell<TimedFeatureOverride> = OnceCell::new();
+
+const BYTECODE_V6_GAS_FEATURE_VERSION: u64 = 5;
 
 /// Set the paranoid type check flag.
 pub fn set_paranoid_type_checks(enable: bool) {
@@ -68,6 +71,19 @@ pub fn aptos_prod_deserializer_config(features: &Features) -> DeserializerConfig
     )
 }
 
+fn aptos_prod_deserializer_config_with_gas_feature_version(
+    features: &Features,
+    gas_feature_version: u64,
+) -> DeserializerConfig {
+    let max_binary_format_version = if gas_feature_version < BYTECODE_V6_GAS_FEATURE_VERSION {
+        VERSION_5
+    } else {
+        features.get_max_binary_format_version()
+    };
+
+    DeserializerConfig::new(max_binary_format_version, features.get_max_identifier_size())
+}
+
 /// Returns [VerifierConfig] used by the Aptos blockchain in production.
 pub fn aptos_prod_verifier_config(features: &Features) -> VerifierConfig {
     let use_signature_checker_v2 = features.is_enabled(FeatureFlag::SIGNATURE_CHECKER_V2);
@@ -109,6 +125,7 @@ pub fn aptos_prod_vm_config(
     features: &Features,
     timed_features: &TimedFeatures,
     ty_builder: TypeBuilder,
+    gas_feature_version: u64,
 ) -> VMConfig {
     let check_invariant_in_swap_loc =
         !timed_features.is_enabled(TimedFeatureFlag::DisableInvariantViolationCheckInSwapLoc);
@@ -124,7 +141,8 @@ pub fn aptos_prod_vm_config(
         type_byte_cost = 1;
     }
 
-    let deserializer_config = aptos_prod_deserializer_config(features);
+    let deserializer_config =
+        aptos_prod_deserializer_config_with_gas_feature_version(features, gas_feature_version);
     let verifier_config = aptos_prod_verifier_config(features);
 
     // Compatibility checker v2 is enabled either by its own flag or if enum types are enabled.
@@ -170,5 +188,50 @@ impl RandomnessConfig {
             randomness_api_v0_required_deposit,
             allow_rand_contract_custom_max_gas,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aptos_types::on_chain_config::{FeatureFlag, TimedFeaturesBuilder};
+
+    fn max_binary_format_from_vm_config(vm_config: &VMConfig) -> u32 {
+        let bytes = bcs::to_bytes(&vm_config.deserializer_config)
+            .expect("deserializer config should serialize");
+        u32::from_le_bytes(bytes[..4].try_into().expect("u32 bytes"))
+    }
+
+    #[test]
+    fn test_vm_config_caps_binary_format_before_gas_v5() {
+        let mut features = Features::default();
+        features.enable(FeatureFlag::VM_BINARY_FORMAT_V8);
+
+        let vm_config = aptos_prod_vm_config(
+            &features,
+            &TimedFeaturesBuilder::enable_all().build(),
+            aptos_default_ty_builder(),
+            BYTECODE_V6_GAS_FEATURE_VERSION - 1,
+        );
+
+        assert_eq!(max_binary_format_from_vm_config(&vm_config), VERSION_5);
+    }
+
+    #[test]
+    fn test_vm_config_uses_feature_binary_format_from_gas_v5() {
+        let mut features = Features::default();
+        features.enable(FeatureFlag::VM_BINARY_FORMAT_V8);
+
+        let vm_config = aptos_prod_vm_config(
+            &features,
+            &TimedFeaturesBuilder::enable_all().build(),
+            aptos_default_ty_builder(),
+            BYTECODE_V6_GAS_FEATURE_VERSION,
+        );
+
+        assert_eq!(
+            max_binary_format_from_vm_config(&vm_config),
+            features.get_max_binary_format_version()
+        );
     }
 }
