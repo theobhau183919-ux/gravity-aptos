@@ -468,9 +468,8 @@ fn validate_and_construct(
     let ty_builder = &module_storage.runtime_environment().vm_config().ty_builder;
     for param_ty in function.param_tys() {
         let mut arg = vec![];
-        let arg_ty = ty_builder
-            .create_ty_with_subst(param_ty, function.ty_args())
-            .unwrap();
+        let subst_res = ty_builder.create_ty_with_subst(param_ty, function.ty_args());
+        let arg_ty = subst_res.map_err(|e| e.finish(Location::Undefined).into_vm_status())?;
 
         recursively_construct_arg(
             session,
