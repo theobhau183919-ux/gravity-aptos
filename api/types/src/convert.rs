@@ -20,7 +20,7 @@ use crate::{
 use anyhow::{bail, ensure, format_err, Context as AnyhowContext, Result};
 use aptos_crypto::{hash::CryptoHash, HashValue};
 use aptos_logger::{sample, sample::SampleRate};
-use aptos_resource_viewer::AptosValueAnnotator;
+use aptos_resource_viewer::{AptosValueAnnotator, Limiter};
 use aptos_storage_interface::DbReader;
 use aptos_types::{
     access_path::{AccessPath, Path},
@@ -88,8 +88,13 @@ impl<'a, S: StateView> MoveConverter<'a, S> {
         &self,
         data: impl Iterator<Item = (StructTag, &'b [u8])>,
     ) -> Result<Vec<MoveResource>> {
-        data.map(|(typ, bytes)| self.inner.view_resource(&typ, bytes)?.try_into())
-            .collect()
+        let mut limiter = Limiter::default();
+        data.map(|(typ, bytes)| {
+            self.inner
+                .view_resource_with_limit(&typ, bytes, &mut limiter)?
+                .try_into()
+        })
+        .collect()
     }
 
     pub fn try_into_resource(&self, tag: &StructTag, bytes: &'_ [u8]) -> Result<MoveResource> {
