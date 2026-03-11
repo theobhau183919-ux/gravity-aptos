@@ -187,30 +187,30 @@ impl JWKManager {
         );
         let state = self.states_by_issuer.entry(issuer.clone()).or_default();
         state.observed = Some(jwks.clone());
-        
-        // Determine if update is needed based on source type
+
+        // Determine if update is needed.
+        // We always compare full JWK content against on-chain data to avoid
+        // repeated updates driven by untrusted/non-JWK nonce changes.
+        let jwks_changed =
+            state.observed.as_ref() != state.on_chain.as_ref().map(ProviderJWKs::jwks);
         let needs_update = match observed_nonce {
             Some(nonce) => {
-                // For blockchain events: compare nonce (version) only
                 let on_chain_version = state.convert_oracle_nonce();
-                let should_update = nonce > on_chain_version;
+                let should_update = jwks_changed && nonce > on_chain_version;
                 if should_update {
                     debug!(
                         epoch = self.epoch_state.epoch,
                         issuer = String::from_utf8(issuer.clone()).ok(),
                         observed_nonce = nonce,
                         on_chain_version = on_chain_version,
-                        "Blockchain source needs update (version comparison)"
+                        "Blockchain source needs update"
                     );
                 }
                 should_update
-            }
-            None => {
-                // For JWK sources (https://): compare full jwks content
-                state.observed.as_ref() != state.on_chain.as_ref().map(ProviderJWKs::jwks)
-            }
+            },
+            None => jwks_changed,
         };
-        
+
         if needs_update {
             let observed = ProviderJWKs {
                 issuer: issuer.clone(),
