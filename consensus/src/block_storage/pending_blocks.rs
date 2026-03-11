@@ -6,13 +6,13 @@ use aptos_consensus_types::{block::Block, common::Round};
 use aptos_crypto::HashValue;
 use aptos_logger::info;
 use futures_channel::oneshot;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// A local buffer to hold incoming blocks before it reaches round manager.
 /// Which can be used to fulfill block request from local due to out of order messages.
 pub struct PendingBlocks {
     blocks_by_hash: HashMap<HashValue, Block>,
-    blocks_by_round: BTreeMap<Round, Block>,
+    blocks_by_round: BTreeMap<Round, HashSet<HashValue>>,
     pending_request: Option<(HashValue, oneshot::Sender<Block>)>,
 }
 
@@ -27,10 +27,14 @@ impl PendingBlocks {
 
     pub fn insert_block(&mut self, block: Block) {
         info!("Pending block inserted: {}", block.id());
-        self.blocks_by_hash.insert(block.id(), block.clone());
-        self.blocks_by_round.insert(block.round(), block.clone());
+        let block_id = block.id();
+        self.blocks_by_hash.insert(block_id, block.clone());
+        self.blocks_by_round
+            .entry(block.round())
+            .or_default()
+            .insert(block_id);
         if let Some((id, tx)) = self.pending_request.take() {
-            if id == block.id() {
+            if id == block_id {
                 info!("FulFill block request from incoming block: {}", id);
                 BLOCK_RETRIEVAL_LOCAL_FULFILL_COUNT.inc();
                 tx.send(block).ok();
@@ -57,8 +61,10 @@ impl PendingBlocks {
             to_remove.push(*r);
         }
         for r in to_remove {
-            if let Some(block) = self.blocks_by_round.remove(&r) {
-                self.blocks_by_hash.remove(&block.id());
+            if let Some(block_ids) = self.blocks_by_round.remove(&r) {
+                for block_id in block_ids {
+                    self.blocks_by_hash.remove(&block_id);
+                }
             }
         }
     }
