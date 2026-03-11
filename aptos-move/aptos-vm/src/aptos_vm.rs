@@ -853,6 +853,7 @@ impl AptosVM {
         gas_meter: &mut impl AptosGasMeter,
         traversal_context: &mut TraversalContext,
         entry_fn: &EntryFunction,
+        allow_randomness_unbiasable: bool,
     ) -> Result<(), VMStatus> {
         // Note: Feature gating is needed here because the traversal of the dependencies could
         //       result in shallow-loading of the modules and therefore subtle changes in
@@ -899,7 +900,8 @@ impl AptosVM {
         }
 
         // The `has_randomness_attribute()` should have been feature-gated in 1.11...
-        if function.is_friend_or_private()
+        if allow_randomness_unbiasable
+            && function.is_friend_or_private()
             && get_randomness_annotation(module_storage, entry_fn)?.is_some()
         {
             let txn_context = session
@@ -976,6 +978,7 @@ impl AptosVM {
                         gas_meter,
                         traversal_context,
                         entry_fn,
+                        true,
                     )
                 })?;
             },
@@ -1374,6 +1377,7 @@ impl AptosVM {
                 gas_meter,
                 traversal_context,
                 payload,
+                false,
             )
         })?;
 
