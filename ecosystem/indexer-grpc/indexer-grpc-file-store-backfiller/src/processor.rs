@@ -23,6 +23,9 @@ use std::{
 };
 use tokio::sync::Mutex;
 
+const TRANSACTION_BATCH_SIZE: usize = 1000;
+const MAX_TRANSACTION_BUFFER_SIZE: usize = 10_000;
+
 /// Processor tails the data in cache and stores the data in file store.
 pub struct Processor {
     file_store_operator: Box<dyn FileStoreOperator>,
@@ -140,7 +143,8 @@ impl Processor {
     }
 
     pub async fn backfill(&mut self) -> Result<()> {
-        let (sender, receiver) = tokio::sync::mpsc::channel::<Vec<Transaction>>(1000);
+        let (sender, receiver) =
+            tokio::sync::mpsc::channel::<Vec<Transaction>>(TRANSACTION_BATCH_SIZE);
         // Get the stream out.
         // This is required, since the batch returned by the stream is not guaranteed to be 1000.
         let mut transactions_buffer = BTreeMap::new();
@@ -186,9 +190,12 @@ impl Processor {
                             None => return Ok(()),
                         };
                         // Data quality check.
-                        ensure!(transactions.len() == 1000, "Unexpected transaction count");
                         ensure!(
-                            transactions[0].version % 1000 == 0,
+                            transactions.len() == TRANSACTION_BATCH_SIZE,
+                            "Unexpected transaction count"
+                        );
+                        ensure!(
+                            transactions[0].version % TRANSACTION_BATCH_SIZE as u64 == 0,
                             "Unexpected starting version"
                         );
                         for (ide, t) in transactions.iter().enumerate() {
@@ -226,7 +233,7 @@ impl Processor {
                         loop {
                             if finished_starting_versions.contains(&next_version_to_process) {
                                 finished_starting_versions.remove(&next_version_to_process);
-                                next_version_to_process += 1000;
+                                next_version_to_process += TRANSACTION_BATCH_SIZE as u64;
                                 need_to_update = true;
                             } else {
                                 break;
@@ -282,16 +289,21 @@ impl Processor {
                         // Partial batch may be received; split and insert into buffer.
                         transactions_buffer.insert(version, txn);
                     }
+                    ensure!(
+                        transactions_buffer.len() <= MAX_TRANSACTION_BUFFER_SIZE,
+                        "Transactions buffer exceeded max size of {} without a batch boundary.",
+                        MAX_TRANSACTION_BUFFER_SIZE
+                    );
                 },
                 Response::Status(signal) => {
                     if signal.r#type() != StatusType::BatchEnd {
                         anyhow::bail!("Unexpected status signal type");
                     }
-                    while transactions_buffer.len() >= 1000 {
-                        // Take the first 1000 transactions.
-                        let mut transactions = Vec::new();
-                        // Pop the first 1000 transactions from buffer.
-                        for _ in 0..1000 {
+                    while transactions_buffer.len() >= TRANSACTION_BATCH_SIZE {
+                        // Take the first TRANSACTION_BATCH_SIZE transactions.
+                        let mut transactions = Vec::with_capacity(TRANSACTION_BATCH_SIZE);
+                        // Pop the first TRANSACTION_BATCH_SIZE transactions from buffer.
+                        for _ in 0..TRANSACTION_BATCH_SIZE {
                             let (_, txn) = transactions_buffer.pop_first().unwrap();
                             transactions.push(txn);
                         }
@@ -337,7 +349,7 @@ impl Processor {
                         if version >= expected_end_version {
                             return Ok(());
                         }
-                        *version_allocator += 1000;
+                        *version_allocator += TRANSACTION_BATCH_SIZE as u64;
                         version
                     };
                     let transactions = file_operator.get_transactions(version, 1).await.unwrap();
@@ -363,7 +375,7 @@ impl Processor {
                     let mut gap_detector = gap_detector.lock().await;
                     if gap_detector.contains(&current_version) {
                         gap_detector.remove(&current_version);
-                        current_version += 1000;
+                        current_version += TRANSACTION_BATCH_SIZE as u64;
                     } else {
                         break;
                     }
