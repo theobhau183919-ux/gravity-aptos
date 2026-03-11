@@ -390,6 +390,20 @@ impl NoiseUpgrader {
                         Self::authenticate_inbound(remote_peer_short, &peer, &remote_public_key)
                     },
                     None => {
+                        // For non-trusted peers, still require the self-reported peer id to
+                        // match the peer id derived from the authenticated static key.
+                        let derived_remote_peer_id =
+                            aptos_types::account_address::from_identity_public_key(
+                                remote_public_key,
+                            );
+                        if remote_peer_id != derived_remote_peer_id {
+                            return Err(NoiseHandshakeError::ClientPeerIdMismatch(
+                                remote_peer_short,
+                                remote_peer_id,
+                                derived_remote_peer_id,
+                            ));
+                        }
+
                         // Try to infer the role from the network context
                         if self.network_context.role().is_validator() {
                             if network_id.is_vfn_network() {
