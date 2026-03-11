@@ -434,8 +434,7 @@ async fn test_jwk_manager_state_transition() {
         .collect::<HashSet<_>>();
     assert_eq!(expected_vtxn_hashes, actual_vtxn_hashes);
 
-    // NOTE(Gravity): At any time, JWKConsensusManager should follow on-chain update notification.
-    // With incremental update model, missing entries are NOT deleted.
+    // At any time, JWKConsensusManager should follow on-chain update notification.
     let second_on_chain_state = AllProvidersJWKs {
         entries: vec![on_chain_state_alice_v111.clone()],
     };
@@ -443,10 +442,8 @@ async fn test_jwk_manager_state_transition() {
     assert!(jwk_manager
         .reset_with_on_chain_state(second_on_chain_state)
         .is_ok());
-    // NOTE(Gravity): With incremental model, Bob and Carl remain (they just weren't updated).
-    // Commented out for easier upstream merge comparison.
-    // expected_states.remove(&issuer_bob);
-    // expected_states.remove(&issuer_carl);
+    expected_states.remove(&issuer_bob);
+    expected_states.remove(&issuer_carl);
     assert_eq!(expected_states, jwk_manager.states_by_issuer);
 }
 
