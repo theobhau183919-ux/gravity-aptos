@@ -450,6 +450,52 @@ async fn test_jwk_manager_state_transition() {
     assert_eq!(expected_states, jwk_manager.states_by_issuer);
 }
 
+#[tokio::test]
+async fn test_gravity_nonce_alone_does_not_trigger_update() {
+    let private_key = Arc::new(PrivateKey::generate_for_testing());
+    let public_key = PublicKey::from(private_key.as_ref());
+    let addr = AccountAddress::random();
+    let epoch_state = EpochState {
+        epoch: 1,
+        verifier: ValidatorVerifier::new(vec![ValidatorConsensusInfo::new(addr, public_key, 1)])
+            .into(),
+    };
+
+    let mut jwk_manager = JWKManager::new(
+        private_key,
+        addr,
+        Arc::new(epoch_state),
+        Arc::new(DummyUpdateCertifier::default()),
+        VTxnPoolState::default(),
+    );
+
+    let issuer = issuer_from_str("gravity://0/1");
+    let unchanged_jwks = vec![JWK::Unsupported(UnsupportedJWK {
+        id: b"gravity_jwk".to_vec(),
+        payload: vec![0; 16],
+    })
+    .into()];
+
+    let on_chain_state = AllProvidersJWKs {
+        entries: vec![ProviderJWKs {
+            issuer: issuer.clone(),
+            version: 7,
+            jwks: unchanged_jwks.clone(),
+        }],
+    };
+    assert!(jwk_manager
+        .reset_with_on_chain_state(on_chain_state)
+        .is_ok());
+
+    // A very large nonce alone must not trigger a new update when JWKs are unchanged.
+    assert!(jwk_manager
+        .process_new_observation(issuer.clone(), unchanged_jwks, Some(u128::MAX))
+        .is_ok());
+
+    let state = jwk_manager.states_by_issuer.get(&issuer).unwrap();
+    assert_eq!(ConsensusState::NotStarted, state.consensus_state);
+}
+
 fn new_rpc_observation_request(
     epoch: u64,
     issuer: Issuer,
