@@ -299,9 +299,9 @@ pub struct PooledVMValidator {
 impl PooledVMValidator {
     pub fn new(db_reader: Arc<dyn DbReader>, pool_size: usize) -> Self {
         let mut vm_validators = Vec::new();
-        // for _ in 0..pool_size {
-        //     vm_validators.push(Arc::new(Mutex::new(VMValidator::new(db_reader.clone()))));
-        // }
+        for _ in 0..pool_size {
+            vm_validators.push(Arc::new(Mutex::new(VMValidator::new(db_reader.clone()))));
+        }
         PooledVMValidator { vm_validators }
     }
 
@@ -319,10 +319,10 @@ impl TransactionValidation for PooledVMValidator {
     type ValidationInstance = AptosVM;
 
     fn validate_transaction(&self, txn: SignedTransaction) -> Result<VMValidatorResult> {
-        // NOTE: VM validation is skipped because reth/execution layer handles transaction validation.
-        // The VM validator pool is intentionally left empty.
         let Some(vm_validator) = self.get_next_vm() else {
-            return Ok(VMValidatorResult::new(None, 0));
+            return Err(anyhow::anyhow!(
+                "No VM validators available to validate transaction"
+            ));
         };
 
         fail_point!("vm_validator::validate_transaction", |_| {
