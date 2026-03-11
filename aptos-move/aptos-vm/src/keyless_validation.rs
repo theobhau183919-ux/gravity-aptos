@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::move_vm_ext::AptosMoveResolver;
+use aptos_gas_schedule::gas_feature_versions::RELEASE_V1_12;
 use aptos_crypto::ed25519::Ed25519PublicKey;
 use aptos_types::{
     invalid_signature,
@@ -160,10 +161,15 @@ fn get_jwk_for_authenticator(
 pub(crate) fn validate_authenticators(
     pvk: &Option<PreparedVerifyingKey<Bn254>>,
     authenticators: &Vec<(AnyKeylessPublicKey, KeylessSignature)>,
+    gas_feature_version: u64,
     features: &Features,
     resolver: &impl AptosMoveResolver,
     module_storage: &impl ModuleStorage,
 ) -> Result<(), VMStatus> {
+    if gas_feature_version < RELEASE_V1_12 {
+        return Err(VMStatus::error(StatusCode::FEATURE_UNDER_GATING, None));
+    }
+
     let mut with_zk = false;
     for (pk, sig) in authenticators {
         // Feature-gating for keyless TXNs (whether ZK or ZKless, whether passkey-based or not)
