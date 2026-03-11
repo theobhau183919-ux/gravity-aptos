@@ -49,20 +49,20 @@ impl DBSubPruner for TransactionPruner {
             &DbMetadataKey::TransactionPrunerProgress,
             &DbMetadataValue::Version(target_version),
         )?;
-        if let Some(indexer_db) = self.internal_indexer_db.as_ref() {
-            if indexer_db.transaction_enabled() {
-                let mut index_batch = SchemaBatch::new();
-                self.transaction_store
-                    .prune_transaction_by_account(&candidate_transactions, &mut index_batch)?;
-                index_batch.put::<InternalIndexerMetadataSchema>(
-                    &IndexerMetadataKey::TransactionPrunerProgress,
-                    &IndexerMetadataValue::Version(target_version),
-                )?;
-                indexer_db.get_inner_db_ref().write_schemas(index_batch)?;
-            } else {
-                self.transaction_store
-                    .prune_transaction_by_account(&candidate_transactions, &mut batch)?;
-            }
+        if let Some(indexer_db) = self.internal_indexer_db.as_ref()
+            && indexer_db.transaction_enabled()
+        {
+            let mut index_batch = SchemaBatch::new();
+            self.transaction_store
+                .prune_transaction_by_account(&candidate_transactions, &mut index_batch)?;
+            index_batch.put::<InternalIndexerMetadataSchema>(
+                &IndexerMetadataKey::TransactionPrunerProgress,
+                &IndexerMetadataValue::Version(target_version),
+            )?;
+            indexer_db.get_inner_db_ref().write_schemas(index_batch)?;
+        } else {
+            self.transaction_store
+                .prune_transaction_by_account(&candidate_transactions, &mut batch)?;
         }
         self.ledger_db.transaction_db().write_schemas(batch)
     }
