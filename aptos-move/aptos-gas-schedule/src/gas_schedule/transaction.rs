@@ -259,7 +259,7 @@ crate::gas_schedule::macros::define_gas_parameters!(
         [
             keyless_base_cost: InternalGas,
             { RELEASE_V1_12.. => "keyless.base" },
-            32_000_000,
+            138_000_000,
         ],
         [
             max_ty_size: NumTypeNodes,
