@@ -364,13 +364,14 @@ module aptos_token_objects::aptos_token {
 
     inline fun authorized_borrow<T: key>(token: &Object<T>, creator: &signer): &AptosToken {
         let token_address = object::object_address(token);
+        let collection = token::collection_object(*token);
         assert!(
             exists<AptosToken>(token_address),
             error::not_found(ETOKEN_DOES_NOT_EXIST),
         );
 
         assert!(
-            token::creator(*token) == signer::address_of(creator),
+            object::owner(collection) == signer::address_of(creator),
             error::permission_denied(ENOT_CREATOR),
         );
         borrow_global<AptosToken>(token_address)
@@ -611,7 +612,7 @@ module aptos_token_objects::aptos_token {
             error::not_found(ECOLLECTION_DOES_NOT_EXIST),
         );
         assert!(
-            collection::creator(*collection) == signer::address_of(creator),
+            object::owner(*collection) == signer::address_of(creator),
             error::permission_denied(ENOT_CREATOR),
         );
         borrow_global<AptosCollection>(collection_address)
@@ -758,6 +759,73 @@ module aptos_token_objects::aptos_token {
         let token = mint_helper(creator, collection_name, token_name);
         freeze_transfer(creator, token);
         unfreeze_transfer(another, token);
+    }
+
+    #[test(creator = @0x123, new_owner = @0x456)]
+    #[expected_failure(abort_code = 0x50003, location = Self)]
+    fun test_previous_creator_cannot_freeze_after_collection_transfer(
+        creator: &signer,
+        new_owner: &signer,
+    ) acquires AptosCollection, AptosToken {
+        let collection_name = string::utf8(b"collection name");
+        let token_name = string::utf8(b"token name");
+
+        let collection = create_collection_helper(creator, collection_name, true);
+        let token = mint_helper(creator, collection_name, token_name);
+
+        account::create_account_for_test(signer::address_of(new_owner));
+        object::transfer(creator, collection, signer::address_of(new_owner));
+
+        freeze_transfer(creator, token);
+    }
+
+    #[test(creator = @0x123, new_owner = @0x456)]
+    fun test_new_owner_can_freeze_after_collection_transfer(
+        creator: &signer,
+        new_owner: &signer,
+    ) acquires AptosCollection, AptosToken {
+        let collection_name = string::utf8(b"collection name");
+        let token_name = string::utf8(b"token name");
+
+        let collection = create_collection_helper(creator, collection_name, true);
+        let token = mint_helper(creator, collection_name, token_name);
+
+        account::create_account_for_test(signer::address_of(new_owner));
+        object::transfer(creator, collection, signer::address_of(new_owner));
+
+        freeze_transfer(new_owner, token);
+        unfreeze_transfer(new_owner, token);
+    }
+
+    #[test(creator = @0x123, new_owner = @0x456)]
+    #[expected_failure(abort_code = 0x50003, location = Self)]
+    fun test_previous_creator_cannot_mutate_collection_after_transfer(
+        creator: &signer,
+        new_owner: &signer,
+    ) acquires AptosCollection {
+        let collection_name = string::utf8(b"collection name");
+
+        let collection = create_collection_helper(creator, collection_name, true);
+        account::create_account_for_test(signer::address_of(new_owner));
+        object::transfer(creator, collection, signer::address_of(new_owner));
+
+        set_collection_description(creator, collection, string::utf8(b"not"));
+    }
+
+    #[test(creator = @0x123, new_owner = @0x456)]
+    fun test_new_owner_can_mutate_collection_after_transfer(
+        creator: &signer,
+        new_owner: &signer,
+    ) acquires AptosCollection {
+        let collection_name = string::utf8(b"collection name");
+
+        let collection = create_collection_helper(creator, collection_name, true);
+        account::create_account_for_test(signer::address_of(new_owner));
+        object::transfer(creator, collection, signer::address_of(new_owner));
+
+        let value = string::utf8(b"not");
+        set_collection_description(new_owner, collection, value);
+        assert!(collection::description(collection) == value, 0);
     }
 
     #[test(creator = @0x123)]
