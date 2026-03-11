@@ -473,6 +473,10 @@ impl BatchStore {
         rx
     }
 
+    fn unsubscribe(&self, digest: &HashValue) {
+        self.persist_subscribers.remove(digest);
+    }
+
     fn notify_subscribers(&self, value: PersistedValue) {
         if let Some((_, subscribers)) = self.persist_subscribers.remove(value.digest()) {
             for subscriber in subscribers {
@@ -568,10 +572,20 @@ impl<T: QuorumStoreSender + Clone + Send + Sync + 'static> BatchReaderImpl<T> {
                                 responders,
                                 subscriber_rx,
                             )
-                            .await?;
-                        batch_store
-                            .persist(vec![PersistedValue::new(batch_info, Some(payload.clone()))]);
-                        Ok(payload)
+                            .await;
+                        match payload {
+                            Ok(payload) => {
+                                batch_store.persist(vec![PersistedValue::new(
+                                    batch_info,
+                                    Some(payload.clone()),
+                                )]);
+                                Ok(payload)
+                            },
+                            Err(err) => {
+                                batch_store.unsubscribe(&batch_digest);
+                                Err(err)
+                            },
+                        }
                     }
                 }
                 .boxed()
