@@ -264,6 +264,67 @@ fn test_compilation_metadata_internal(
     }
 }
 
+fn test_compilation_metadata_missing_internal(mainnet_flag: bool) -> TransactionStatus {
+    let mut h = MoveHarness::new();
+    h.enable_features(vec![FeatureFlag::REJECT_UNSTABLE_BYTECODE], vec![]);
+    let account = h.new_account_at(AccountAddress::from_hex_literal("0xf00d").unwrap());
+    let mut builder = PackageBuilder::new("Package");
+    builder.add_source(
+        "m.move",
+        r#"
+        module 0xf00d::M {
+            #[view]
+            fun foo(value: u64): u64 { value }
+        }
+        "#,
+    );
+    let path = builder.write_to_temp().unwrap();
+
+    let package = build_package(
+        path.path().to_path_buf(),
+        BuildOptions {
+            compiler_version: Some(CompilerVersion::latest_stable()),
+            ..BuildOptions::default()
+        },
+    )
+    .expect("building package must succeed");
+
+    let package_metadata = package
+        .extract_metadata()
+        .expect("extracting package metadata must succeed");
+    let mut code = package.extract_code();
+    let mut compiled_module = CompiledModule::deserialize(&code[0]).unwrap();
+    compiled_module
+        .metadata
+        .retain(|entry| entry.key != COMPILATION_METADATA_KEY);
+    let mut serialized = vec![];
+    compiled_module.serialize(&mut serialized).unwrap();
+    code[0] = serialized;
+
+    if mainnet_flag {
+        h.set_resource(
+            CORE_CODE_ADDRESS,
+            ChainId::struct_tag(),
+            &ChainId::mainnet().id(),
+        );
+        h.run_transaction_payload_mainnet(
+            &account,
+            aptos_stdlib::code_publish_package_txn(
+                bcs::to_bytes(&package_metadata).expect("PackageMetadata has BCS"),
+                code,
+            ),
+        )
+    } else {
+        h.run_transaction_payload(
+            &account,
+            aptos_stdlib::code_publish_package_txn(
+                bcs::to_bytes(&package_metadata).expect("PackageMetadata has BCS"),
+                code,
+            ),
+        )
+    }
+}
+
 fn test_compilation_metadata_script_internal(
     mainnet_flag: bool,
     unstable_flag: bool,
@@ -317,6 +378,15 @@ fn test_compilation_metadata_script_internal(
     } else {
         h.run_transaction_payload(&account, script)
     }
+}
+
+#[test]
+fn test_compilation_metadata_missing_is_rejected_on_mainnet() {
+    assert_vm_status!(
+        test_compilation_metadata_missing_internal(true),
+        StatusCode::UNSTABLE_BYTECODE_REJECTED
+    );
+    assert_success!(test_compilation_metadata_missing_internal(false));
 }
 
 #[test]
