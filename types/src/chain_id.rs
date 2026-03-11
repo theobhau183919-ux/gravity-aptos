@@ -149,7 +149,7 @@ impl fmt::Display for ChainId {
 
 impl From<u64> for ChainId {
     fn from(value: u64) -> Self {
-        ChainId(value)
+        ChainId::new(value)
     }
 }
 
@@ -193,6 +193,7 @@ impl FromStr for ChainId {
 impl ChainId {
     pub fn new(id: u64) -> Self {
         assert!(id > 0, "cannot have chain ID with 0");
+        assert!(id <= u8::MAX as u64, "cannot have chain ID larger than 255");
         Self(id)
     }
 
@@ -225,5 +226,11 @@ mod test {
         assert!(ChainId::from_str("255255").is_err());
         assert_eq!(ChainId::from_str("TESTING").unwrap(), ChainId::test());
         assert_eq!(ChainId::from_str("255").unwrap(), ChainId::new(255));
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot have chain ID larger than 255")]
+    fn test_chain_id_new_too_large() {
+        let _ = ChainId::new(256);
     }
 }
