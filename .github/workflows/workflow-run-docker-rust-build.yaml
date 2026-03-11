@@ -90,7 +90,7 @@ jobs:
         run: |
           if [ -f /home/runner/docker-cache.tzst ]; then
             sudo systemctl stop docker
-            sudo tar --posix -xf /home/runner/docker-cache.tzst -P -C /var/lib/docker --use-compress-program zstdmt .
+            sudo tar --posix -xf /home/runner/docker-cache.tzst -C /var/lib/docker --use-compress-program zstdmt .
             sudo systemctl start docker
           fi          
 
@@ -116,6 +116,5 @@ jobs:
         run: |
           if [ ! -f /home/runner/docker-cache.tzst ]; then
             sudo systemctl stop docker
-            sudo tar --posix -cf /home/runner/docker-cache.tzst -P -C /var/lib/docker --use-compress-program zstdmt .
+            sudo tar --posix -cf /home/runner/docker-cache.tzst -C /var/lib/docker --use-compress-program zstdmt .
           fi
-
