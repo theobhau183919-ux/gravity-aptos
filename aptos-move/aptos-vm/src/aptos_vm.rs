@@ -1657,17 +1657,12 @@ impl AptosVM {
     fn reject_unstable_bytecode(&self, modules: &[CompiledModule]) -> VMResult<()> {
         if self.chain_id().is_mainnet() {
             for module in modules {
-                if let Some(metadata) =
-                    aptos_framework::get_compilation_metadata_from_compiled_module(module)
-                {
-                    if metadata.unstable {
-                        return Err(PartialVMError::new(StatusCode::UNSTABLE_BYTECODE_REJECTED)
-                            .with_message(
-                                "code marked unstable is not published on mainnet".to_string(),
-                            )
-                            .finish(Location::Undefined));
-                    }
-                }
+                Self::reject_unstable_compilation_metadata(
+                    aptos_framework::get_compilation_metadata_from_compiled_module(module),
+                    Location::Undefined,
+                    "module code without valid compilation metadata is not published on mainnet",
+                    "code marked unstable is not published on mainnet",
+                )?;
             }
         }
         Ok(())
@@ -1676,16 +1671,41 @@ impl AptosVM {
     /// Check whether the script can be run on mainnet based on the unstable tag in the metadata
     pub fn reject_unstable_bytecode_for_script(&self, module: &CompiledScript) -> VMResult<()> {
         if self.chain_id().is_mainnet() {
-            if let Some(metadata) =
-                aptos_framework::get_compilation_metadata_from_compiled_script(module)
-            {
-                if metadata.unstable {
-                    return Err(PartialVMError::new(StatusCode::UNSTABLE_BYTECODE_REJECTED)
-                        .with_message("script marked unstable cannot be run on mainnet".to_string())
-                        .finish(Location::Script));
-                }
-            }
+            Self::reject_unstable_compilation_metadata(
+                aptos_framework::get_compilation_metadata_from_compiled_script(module),
+                Location::Script,
+                "script without valid compilation metadata cannot be run on mainnet",
+                "script marked unstable cannot be run on mainnet",
+            )?;
         }
+        Ok(())
+    }
+
+    fn reject_unstable_compilation_metadata(
+        metadata: Option<move_model::metadata::CompilationMetadata>,
+        location: Location,
+        missing_metadata_msg: &'static str,
+        unstable_msg: &'static str,
+    ) -> VMResult<()> {
+        let metadata = metadata.ok_or_else(|| {
+            PartialVMError::new(StatusCode::UNSTABLE_BYTECODE_REJECTED)
+                .with_message(missing_metadata_msg.to_string())
+                .finish(location)
+        })?;
+
+        let unstable = metadata.unstable
+            || metadata
+                .compiler_version()
+                .map_or(true, |version| version.unstable())
+            || metadata
+                .language_version()
+                .map_or(true, |version| version.unstable());
+        if unstable {
+            return Err(PartialVMError::new(StatusCode::UNSTABLE_BYTECODE_REJECTED)
+                .with_message(unstable_msg.to_string())
+                .finish(location));
+        }
+
         Ok(())
     }
 
