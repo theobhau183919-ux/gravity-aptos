@@ -13,7 +13,7 @@ runs:
   using: composite
   steps:
     # Run a local testnet.
-    - uses: aptos-labs/actions/run-local-testnet@main
+    - uses: aptos-labs/actions/run-local-testnet@v1
       with:
         DOCKER_ARTIFACT_REPO: ${{ inputs.GCP_DOCKER_ARTIFACT_REPO }}
         CLI_GIT_REF: ${{ inputs.NETWORK }}
