@@ -1978,7 +1978,9 @@ impl AptosVM {
             TransactionPayload::ModuleBundle(_) => {
                 unwrap_or_discard!(Err(deprecated_module_bundle!()))
             },
-            TransactionPayload::GTxnBytes(_) => todo!(),
+            TransactionPayload::GTxnBytes(_) => {
+                unwrap_or_discard!(Err(deprecated_module_bundle!()))
+            },
         };
         drop(payload_timer);
 
@@ -2589,7 +2591,7 @@ impl AptosVM {
 
             // Deprecated.
             TransactionPayload::ModuleBundle(_) => Err(deprecated_module_bundle!()),
-            TransactionPayload::GTxnBytes(_) => todo!(),
+            TransactionPayload::GTxnBytes(_) => Err(deprecated_module_bundle!()),
         }
     }
 
