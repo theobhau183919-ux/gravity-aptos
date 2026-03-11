@@ -1723,6 +1723,7 @@ impl AptosVM {
             keyless_validation::validate_authenticators(
                 &self.pvk,
                 &keyless_authenticators,
+                self.gas_feature_version(),
                 self.features(),
                 resolver,
                 module_storage,
