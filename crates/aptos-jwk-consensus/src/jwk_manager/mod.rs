@@ -104,7 +104,11 @@ impl JWKManager {
             .into_provider_vec()
             .into_iter()
             .filter_map(|provider| {
-                let OIDCProvider { name, config_url, onchain_nonce } = provider;
+                let OIDCProvider {
+                    name,
+                    config_url,
+                    onchain_nonce,
+                } = provider;
                 let maybe_issuer = String::from_utf8(name);
                 let maybe_config_url = String::from_utf8(config_url);
                 match (maybe_issuer, maybe_config_url) {
@@ -187,7 +191,7 @@ impl JWKManager {
         );
         let state = self.states_by_issuer.entry(issuer.clone()).or_default();
         state.observed = Some(jwks.clone());
-        
+
         // Determine if update is needed based on source type
         let needs_update = match observed_nonce {
             Some(nonce) => {
@@ -204,13 +208,13 @@ impl JWKManager {
                     );
                 }
                 should_update
-            }
+            },
             None => {
                 // For JWK sources (https://): compare full jwks content
                 state.observed.as_ref() != state.on_chain.as_ref().map(ProviderJWKs::jwks)
-            }
+            },
         };
-        
+
         if needs_update {
             let observed = ProviderJWKs {
                 issuer: issuer.clone(),
@@ -262,37 +266,43 @@ impl JWKManager {
     }
 
     /// Invoked on start, or on on-chain JWK updated event.
-    /// NOTE(Gravity): Modified for incremental update model - only updates entries
-    /// that are present in on_chain_state, does not delete missing entries.
     pub fn reset_with_on_chain_state(&mut self, on_chain_state: AllProvidersJWKs) -> Result<()> {
         info!(
             epoch = self.epoch_state.epoch,
             "reset_with_on_chain_state starting."
         );
 
-        // NOTE(Gravity): Commented out delete logic for incremental update model.
-        // The new design from gravity-reth sends only entries that had DataRecorded events,
-        // not the complete set. Missing entries means "no update", not "deleted".
-        // Keeping this commented for easier upstream merge comparison.
-        //
-        // let onchain_issuer_set: HashSet<Issuer> = on_chain_state
-        //     .entries
-        //     .iter()
-        //     .map(|entry| entry.issuer.clone())
-        //     .collect();
-        // let local_issuer_set: HashSet<Issuer> = self.states_by_issuer.keys().cloned().collect();
-        //
-        // for issuer in local_issuer_set.difference(&onchain_issuer_set) {
-        //     info!(
-        //         epoch = self.epoch_state.epoch,
-        //         op = "delete",
-        //         issuer = issuer.clone(),
-        //         "reset_with_on_chain_state"
-        //     );
-        // }
-        //
-        // self.states_by_issuer
-        //     .retain(|issuer, _| onchain_issuer_set.contains(issuer));
+        let onchain_issuer_set: HashSet<Issuer> = on_chain_state
+            .entries
+            .iter()
+            .map(|entry| entry.issuer.clone())
+            .collect();
+        let onchain_gravity_source_keys: HashSet<(u32, u64)> = onchain_issuer_set
+            .iter()
+            .filter_map(Self::extract_source_key)
+            .collect();
+        let local_issuer_set: HashSet<Issuer> = self.states_by_issuer.keys().cloned().collect();
+
+        for issuer in local_issuer_set.iter().filter(|issuer| {
+            !onchain_issuer_set.contains(*issuer)
+                && Self::extract_source_key(issuer)
+                    .map(|source_key| !onchain_gravity_source_keys.contains(&source_key))
+                    .unwrap_or(true)
+        }) {
+            info!(
+                epoch = self.epoch_state.epoch,
+                op = "delete",
+                issuer = issuer.clone(),
+                "reset_with_on_chain_state"
+            );
+        }
+
+        self.states_by_issuer.retain(|issuer, _| {
+            onchain_issuer_set.contains(issuer)
+                || Self::extract_source_key(issuer)
+                    .map(|source_key| onchain_gravity_source_keys.contains(&source_key))
+                    .unwrap_or(false)
+        });
 
         for on_chain_provider_jwks in on_chain_state.entries {
             let incoming_issuer = on_chain_provider_jwks.issuer.clone();
@@ -322,7 +332,7 @@ impl JWKManager {
                         );
                     }
                     incoming_issuer.clone()
-                }
+                },
             };
 
             let locally_cached = self
@@ -349,10 +359,9 @@ impl JWKManager {
                 let mut updated_jwks = on_chain_provider_jwks.clone();
                 updated_jwks.issuer = target_issuer.clone();
 
-                let old_value = self.states_by_issuer.insert(
-                    target_issuer.clone(),
-                    PerProviderState::new(updated_jwks),
-                );
+                let old_value = self
+                    .states_by_issuer
+                    .insert(target_issuer.clone(), PerProviderState::new(updated_jwks));
                 let op = if old_value.is_some() {
                     "update"
                 } else {
