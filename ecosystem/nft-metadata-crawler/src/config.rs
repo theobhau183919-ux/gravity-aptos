@@ -3,7 +3,7 @@
 
 use crate::{
     asset_uploader::{
-        api::AssetUploaderApiContext,
+        api::{AssetUploaderApiConfig, AssetUploaderApiContext},
         throttler::{config::AssetUploaderThrottlerConfig, AssetUploaderThrottlerContext},
         worker::{config::AssetUploaderWorkerConfig, AssetUploaderWorkerContext},
     },
@@ -32,7 +32,7 @@ pub trait Server: Send + Sync {
 pub enum ServerConfig {
     Parser(ParserConfig),
     AssetUploaderWorker(AssetUploaderWorkerConfig),
-    AssetUploaderApi,
+    AssetUploaderApi(AssetUploaderApiConfig),
     AssetUploaderThrottler(AssetUploaderThrottlerConfig),
 }
 
@@ -68,8 +68,11 @@ impl ServerConfig {
                     asset_uploader_worker_config.clone(),
                 ))
             },
-            ServerConfig::AssetUploaderApi => {
-                ServerContext::AssetUploaderApi(AssetUploaderApiContext::new(pool))
+            ServerConfig::AssetUploaderApi(asset_uploader_api_config) => {
+                ServerContext::AssetUploaderApi(AssetUploaderApiContext::new(
+                    pool,
+                    asset_uploader_api_config.clone(),
+                ))
             },
             ServerConfig::AssetUploaderThrottler(asset_uploader_throttler_config) => {
                 ServerContext::AssetUploaderThrottler(AssetUploaderThrottlerContext::new(
@@ -107,7 +110,7 @@ impl RunnableConfig for NFTMetadataCrawlerConfig {
         match self.server_config {
             ServerConfig::Parser(_) => "parser",
             ServerConfig::AssetUploaderWorker(_) => "asset_uploader_worker",
-            ServerConfig::AssetUploaderApi => "asset_uploader_api",
+            ServerConfig::AssetUploaderApi(_) => "asset_uploader_api",
             ServerConfig::AssetUploaderThrottler(_) => "asset_uploader_throttler",
         }
         .to_string()
